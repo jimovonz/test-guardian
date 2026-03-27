@@ -157,6 +157,10 @@ def run(diff_text: str) -> list[Finding]:
             continue
 
         for line_num, line_content in hunk["lines"]:
+            stripped = line_content.lstrip()
+            if _is_string_literal_line(stripped):
+                continue
+
             for pattern_def in PATTERNS:
                 if re.search(pattern_def["pattern"], line_content):
                     findings.append(
@@ -170,6 +174,30 @@ def run(diff_text: str) -> list[Finding]:
                     )
 
     return findings
+
+
+def _is_string_literal_line(stripped: str) -> bool:
+    """Check if a line is a string literal, pattern definition, or docstring.
+
+    Prevents false positives when test data contains patterns like
+    expect(true).toBe(true) inside Python strings or regex definitions.
+    """
+    # Comments
+    if stripped.startswith(("#", "//", "*", "/*")):
+        return True
+    # Python string assignments: "pattern": r"...", variable = "..."
+    if stripped.startswith(("'", '"', "r'", 'r"', "f'", 'f"', "b'", 'b"')):
+        return True
+    # Dict/list entries that are string values: "key": "value"
+    if re.match(r'"\w+":\s*["\']', stripped) or re.match(r"'\w+':\s*[\"']", stripped):
+        return True
+    # Continuation of multiline strings
+    if stripped.startswith((")", "},", "],")):
+        return True
+    # Lines that pass string arguments containing patterns (e.g. assert not func("expect(true)..."))
+    if stripped.startswith("assert ") and ('"' in stripped or "'" in stripped):
+        return True
+    return False
 
 
 def _is_test_file(path: str) -> bool:
@@ -239,7 +267,14 @@ def _check_test_comments(content: str, file: str) -> list[Finding]:
     # Match comment lines (JS/TS/Python)
     comment_re = re.compile(r"""^\s*(//|#|\*|/\*\*)""")
 
+    in_multiline = False
     for i, line in enumerate(lines):
+        triple_count = line.count('"""') + line.count("'''")
+        if triple_count % 2 == 1:
+            in_multiline = not in_multiline
+        if in_multiline:
+            continue
+
         is_test = js_test_re.search(line) or py_test_re.search(line)
         if not is_test:
             continue
@@ -283,7 +318,21 @@ def lint(root: str = ".") -> list[Finding]:
         lines = content.splitlines()
 
         # Run pattern checks against each line
+        in_multiline = False
         for line_num, line_content in enumerate(lines, 1):
+            # Track multiline string boundaries (triple quotes)
+            triple_count = line_content.count('"""') + line_content.count("'''")
+            if triple_count % 2 == 1:
+                in_multiline = not in_multiline
+            if in_multiline:
+                continue
+
+            # Skip lines that are string literals / pattern definitions
+            # (avoids false positives on test data containing bad patterns)
+            stripped = line_content.lstrip()
+            if _is_string_literal_line(stripped):
+                continue
+
             for pattern_def in LINT_PATTERNS:
                 if pattern_def.get("needs_context"):
                     continue  # handled by _check_mock_assertions

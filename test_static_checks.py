@@ -1,7 +1,10 @@
 """Tests for static_checks.py — pattern detection and diff parsing."""
 
 import static_checks
-from static_checks import Finding, parse_diff_hunks, run, lint, _check_test_comments, _check_mock_assertions
+from static_checks import (
+    Finding, parse_diff_hunks, run, lint,
+    _check_test_comments, _check_mock_assertions, _is_string_literal_line,
+)
 
 
 # --- Diff parsing ---
@@ -283,3 +286,34 @@ def test_format_findings():
 def test_format_findings_empty():
     output = static_checks.format_findings([])
     assert "No static check findings" in output
+
+
+# --- String literal false positive prevention ---
+
+# Verifies: _is_string_literal_line identifies Python string assignments as string literals
+def test_string_literal_detection_python_string():
+    assert _is_string_literal_line('"pattern": r"expect\\(true\\)\\.toBe\\(true\\)"')
+    assert _is_string_literal_line("r'expect\\(true\\)'")
+    assert _is_string_literal_line('"some string value"')
+
+
+# Verifies: _is_string_literal_line does NOT flag real assertion code
+def test_string_literal_detection_real_code():
+    assert not _is_string_literal_line("expect(true).toBe(true);")
+    assert not _is_string_literal_line("  expect(result).toBeDefined();")
+    assert not _is_string_literal_line("  assert True")
+
+
+# Verifies: run() does not flag tautological patterns inside Python string literals in diff
+def test_no_false_positive_string_in_diff():
+    diff = """diff --git a/tests/test_checks.py b/tests/test_checks.py
+--- /dev/null
++++ b/tests/test_checks.py
+@@ -0,0 +1,3 @@
++"pattern": r"expect\\(true\\)\\.toBe\\(true\\)",
++"message": "Tautological assertion",
++"severity": "critical",
+"""
+    findings = run(diff)
+    tautological = [f for f in findings if f.rule == "tautological-true"]
+    assert len(tautological) == 0

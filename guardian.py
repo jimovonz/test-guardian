@@ -25,7 +25,7 @@ FORK_TIMEOUT = 600  # 10 minutes per LLM call
 class ForkSession:
     """Manages a persistent forked Claude Code session."""
 
-    def __init__(self, permission_mode: str = "auto"):
+    def __init__(self, permission_mode: str = "bypassPermissions"):
         self.session_id: str | None = None
         self.permission_mode = permission_mode
         self.responses: list[str] = []
@@ -36,7 +36,9 @@ class ForkSession:
 
         if self.session_id is None:
             # First call — fork from parent session
-            cmd += ["--continue", "--fork-session", "--no-session-persistence"]
+            # Note: cannot use --no-session-persistence here — subsequent
+            # calls need to --resume the session, which requires persistence
+            cmd += ["--continue", "--fork-session"]
         else:
             # Subsequent calls — resume the fork
             cmd += ["--resume", self.session_id]
@@ -62,6 +64,8 @@ class ForkSession:
             self.session_id = output.get("session_id")
 
         response_text = output.get("result", "")
+        # Strip cairn memory blocks from response if present
+        response_text = re.sub(r"<memory>.*?</memory>", "", response_text, flags=re.DOTALL).strip()
         self.responses.append(response_text)
         return response_text
 
