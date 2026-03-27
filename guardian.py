@@ -181,6 +181,7 @@ def main():
     print("Phase 1: Writing tests...", file=sys.stderr)
     phase1_prompt = prompts.build_write_tests(diff, static_text, scope_mode)
     phase1_response = session.send(phase1_prompt)
+    print(f"  Done. Response: {phase1_response[:200].splitlines()[0]}...", file=sys.stderr)
     phases.append({
         "phase": 1,
         "name": "Write tests",
@@ -197,6 +198,8 @@ def main():
 
         result = extract_json(phase2_response)
         if result and result.get("complete", False):
+            summary = result.get("summary", "")
+            print(f"  Complete: {summary[:150]}", file=sys.stderr)
             phases.append({
                 "phase": 2,
                 "name": "Confirm completion",
@@ -204,6 +207,11 @@ def main():
                 "result": result,
             })
             break
+
+        remaining = result.get("remaining", []) if result else []
+        print(f"  Iteration {phase2_iterations}: {len(remaining)} remaining items", file=sys.stderr)
+        for r in remaining[:3]:
+            print(f"    - {r[:100]}", file=sys.stderr)
 
         # Session identified remaining work — it will continue on next prompt
         phases.append({
@@ -243,6 +251,10 @@ def main():
             validation_result = extract_json(validation_response)
 
             if validation_result and validation_result.get("mismatches"):
+                mismatches = validation_result["mismatches"]
+                print(f"  {len(mismatches)} comment-assertion mismatch(es), sending back...", file=sys.stderr)
+                for m in mismatches[:3]:
+                    print(f"    - {m[:100]}", file=sys.stderr)
                 phases.append({
                     "phase": 2.5,
                     "name": f"Comment validation (iteration {gate_iterations})",
@@ -251,6 +263,9 @@ def main():
                 })
                 continue  # Session fixes mismatches, re-validate
 
+            print("  Comment validation clean.", file=sys.stderr)
+
+        print("  Quality gate passed.", file=sys.stderr)
         phases.append({
             "phase": 2.5,
             "name": "Quality gate passed",
@@ -281,6 +296,7 @@ def main():
         if result:
             if result.get("confident", False) and not result.get("gaps"):
                 final_confident = True
+                print("  CONFIDENT — tests pass.", file=sys.stderr)
                 phases.append({
                     "phase": 3,
                     "name": "Confidence check",
@@ -290,6 +306,9 @@ def main():
                 break
 
             final_gaps = result.get("gaps", [])
+            print(f"  Not confident. {len(final_gaps)} gap(s):", file=sys.stderr)
+            for g in final_gaps[:3]:
+                print(f"    - {g[:100]}", file=sys.stderr)
             phases.append({
                 "phase": 3,
                 "name": f"Confidence check (iteration {phase3_iterations})",
