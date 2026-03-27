@@ -86,3 +86,12 @@ def test_comment_validation_structure():
     assert '"mismatches"' in prompt
     assert "comment" in prompt.lower()
     assert "assertion" in prompt.lower()
+
+
+# Verifies: JSON enforcement prompt includes the previous response and demands only JSON output
+def test_json_enforcement_structure():
+    prompt = prompts.build_json_enforcement("I think the tests look good overall.")
+    assert "I think the tests look good" in prompt
+    assert '"confident"' in prompt
+    assert '"gaps"' in prompt
+    assert "No prose" in prompt or "nothing else" in prompt.lower()

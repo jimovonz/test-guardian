@@ -163,3 +163,28 @@ Or if there are mismatches:
 
 If you found mismatches, fix them now — update either the comment to be accurate or strengthen the assertion to match the comment. Then respond with the JSON.
 """
+
+
+def build_json_enforcement(previous_response: str) -> str:
+    """Re-prompt when the session didn't respond with required JSON."""
+
+    truncated = previous_response[:300] if len(previous_response) > 300 else previous_response
+
+    return f"""Your previous response did not include the required JSON format. You responded with:
+
+> {truncated}
+
+You MUST respond with ONLY one of these two JSON objects and nothing else:
+
+```json
+{{"confident": true}}
+```
+
+or
+
+```json
+{{"confident": false, "gaps": ["specific gap description"]}}
+```
+
+No prose. No explanation. Just the JSON object. If you have already fixed all gaps and are confident, respond with the first. If gaps remain, list them in the second.
+"""

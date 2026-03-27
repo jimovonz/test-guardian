@@ -263,11 +263,19 @@ def main():
     phase3_iterations = 0
     final_confident = False
     final_gaps = []
+    phase3_raw_responses = []
 
     for i in range(args.max_iter):
         phase3_iterations += 1
-        phase3_prompt = prompts.build_confident_of_pass()
+
+        if i == 0:
+            phase3_prompt = prompts.build_confident_of_pass()
+        else:
+            # Previous response didn't contain JSON — demand it
+            phase3_prompt = prompts.build_json_enforcement(phase3_raw_responses[-1])
+
         phase3_response = session.send(phase3_prompt)
+        phase3_raw_responses.append(phase3_response)
 
         result = extract_json(phase3_response)
         if result:
@@ -289,15 +297,16 @@ def main():
                 "response": phase3_response,
             })
         else:
-            # Couldn't parse JSON — treat as not confident
-            print(f"  Warning: could not parse JSON from Phase 3 response:", file=sys.stderr)
-            print(f"  Response (first 300 chars): {phase3_response[:300]}", file=sys.stderr)
-            phases.append({
-                "phase": 3,
-                "name": f"Confidence check (iteration {phase3_iterations})",
-                "result": {"confident": False, "parse_error": True},
-                "response": phase3_response,
-            })
+            print(f"  No JSON in response, enforcing format...", file=sys.stderr)
+            # Don't append a phase entry yet — we'll retry with enforcement
+
+    # If we exhausted iterations without JSON, include all raw responses
+    if not final_confident and not final_gaps:
+        phases.append({
+            "phase": 3,
+            "name": "Confidence check (raw output)",
+            "response": "\n\n---\n\n".join(phase3_raw_responses),
+        })
 
     elapsed = time.time() - start_time
 

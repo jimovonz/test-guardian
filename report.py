@@ -16,22 +16,6 @@ def format_report(
     lines.append("# Test Guardian Report")
     lines.append("")
 
-    # Verdict
-    if final_confident:
-        lines.append("## PASS")
-        lines.append("")
-        lines.append("The session is confident that tests will pass independent examination.")
-    else:
-        lines.append("## FINDINGS REMAIN")
-        lines.append("")
-        if final_gaps:
-            lines.append("The session identified gaps it could not resolve:")
-            for gap in final_gaps:
-                lines.append(f"- {gap}")
-        else:
-            lines.append("The iteration cap was reached without full confidence.")
-    lines.append("")
-
     # Summary
     phase2_iters = sum(1 for p in phases if p["phase"] == 2)
     gate_iters = sum(1 for p in phases if p["phase"] == 2.5)
@@ -108,25 +92,21 @@ def format_report(
 
         elif p["phase"] == 3:
             result = p.get("result", {})
-            if result and result.get("parse_error"):
-                lines.append("### Phase 3: Parse Error")
+            if result and result.get("confident"):
+                lines.append("### Phase 3: CONFIDENT")
                 lines.append("")
-                resp = p.get("response", "(no response)")
-                if len(resp) > 500:
-                    resp = resp[:500] + "... (truncated)"
-                lines.append(f"Could not parse JSON from response:\n\n> {resp}")
+            elif result and result.get("gaps"):
+                gaps = result["gaps"]
+                lines.append("### Phase 3: Gaps Identified")
                 lines.append("")
-            elif result and not result.get("confident", False):
-                gaps = result.get("gaps", [])
-                lines.append("### Phase 3: Confidence Check")
+                for g in gaps:
+                    lines.append(f"- {g}")
                 lines.append("")
-                if gaps:
-                    lines.append("Gaps identified:")
-                    for g in gaps:
-                        lines.append(f"- {g}")
+            elif p.get("response"):
+                # Raw output fallback — include verbatim for parent to interpret
+                lines.append("### Phase 3: Confidence Assessment")
                 lines.append("")
-            elif result and result.get("confident"):
-                lines.append("### Phase 3: Confident of Pass")
+                lines.append(p["response"])
                 lines.append("")
 
     return "\n".join(lines)
