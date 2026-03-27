@@ -35,10 +35,10 @@ class ForkSession:
         cmd = ["claude", "-p", "--output-format", "json"]
 
         if self.session_id is None:
-            # First call — fork from parent session
-            # Note: cannot use --no-session-persistence here — subsequent
-            # calls need to --resume the session, which requires persistence
-            cmd += ["--continue", "--fork-session"]
+            # First call — standalone session (no --continue to avoid
+            # picking up wrong session in multi-fork scenarios)
+            # Context is provided in the prompt itself
+            pass
         else:
             # Subsequent calls — resume the fork
             cmd += ["--resume", self.session_id]
