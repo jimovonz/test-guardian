@@ -108,9 +108,17 @@ def format_report(
 
         elif p["phase"] == 3:
             result = p.get("result", {})
-            if result and not result.get("confident", False):
+            if result and result.get("parse_error"):
+                lines.append("### Phase 3: Parse Error")
+                lines.append("")
+                resp = p.get("response", "(no response)")
+                if len(resp) > 500:
+                    resp = resp[:500] + "... (truncated)"
+                lines.append(f"Could not parse JSON from response:\n\n> {resp}")
+                lines.append("")
+            elif result and not result.get("confident", False):
                 gaps = result.get("gaps", [])
-                lines.append(f"### Phase 3: Confidence Check")
+                lines.append("### Phase 3: Confidence Check")
                 lines.append("")
                 if gaps:
                     lines.append("Gaps identified:")

@@ -290,6 +290,8 @@ def main():
             })
         else:
             # Couldn't parse JSON — treat as not confident
+            print(f"  Warning: could not parse JSON from Phase 3 response:", file=sys.stderr)
+            print(f"  Response (first 300 chars): {phase3_response[:300]}", file=sys.stderr)
             phases.append({
                 "phase": 3,
                 "name": f"Confidence check (iteration {phase3_iterations})",
