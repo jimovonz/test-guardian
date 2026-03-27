@@ -305,6 +305,72 @@ def lint(root: str = ".") -> list[Finding]:
     return findings
 
 
+def collect_test_samples(root: str = ".") -> str:
+    """Collect test functions with their preceding comments for LLM validation.
+
+    Returns a formatted string of test samples: comment + test signature + assertions.
+    Keeps it concise — only includes tests that have comments (lint catches missing ones).
+    """
+    import os
+
+    samples = []
+    test_files = _find_test_files(root)
+
+    js_test_re = re.compile(r"""^\s*(it|test)\(\s*['"]""")
+    py_test_re = re.compile(r"""^\s*def\s+(test_\w+)\s*\(""")
+    comment_re = re.compile(r"""^\s*(//|#)""")
+    assert_re = re.compile(r"""^\s*(expect|assert)\b""")
+
+    for rel_path in test_files:
+        full_path = os.path.join(root, rel_path)
+        try:
+            with open(full_path, "r") as f:
+                lines = f.readlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        for i, line in enumerate(lines):
+            is_test = js_test_re.search(line) or py_test_re.search(line)
+            if not is_test:
+                continue
+
+            # Collect preceding comment (up to 3 lines back)
+            comment_lines = []
+            for j in range(max(0, i - 3), i):
+                if comment_re.search(lines[j]):
+                    comment_lines.append(lines[j].rstrip())
+
+            if not comment_lines:
+                continue  # Lint handles missing comments
+
+            # Collect assertions from the test body (up to 20 lines forward)
+            assertion_lines = []
+            for j in range(i + 1, min(len(lines), i + 20)):
+                stripped = lines[j].strip()
+                if assert_re.search(stripped):
+                    assertion_lines.append(f"  {stripped}")
+                # Stop at next test or closing brace at indent level
+                if js_test_re.search(lines[j]) or py_test_re.search(lines[j]):
+                    break
+
+            sample = f"File: {rel_path}:{i + 1}\n"
+            sample += "\n".join(comment_lines) + "\n"
+            sample += line.rstrip() + "\n"
+            if assertion_lines:
+                sample += "Assertions:\n" + "\n".join(assertion_lines)
+            else:
+                sample += "Assertions: (none found)"
+            samples.append(sample)
+
+    # Cap to avoid huge prompts — sample up to 50
+    if len(samples) > 50:
+        import random
+        random.seed(42)
+        samples = random.sample(samples, 50)
+
+    return "\n\n---\n\n".join(samples)
+
+
 def format_findings(findings: list[Finding]) -> str:
     """Format static findings for inclusion in prompts."""
     if not findings:

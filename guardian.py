@@ -209,6 +209,51 @@ def main():
             "response": phase2_response,
         })
 
+    # Phase 2.5: Two-tier quality gate (lint + LLM comment validation)
+    print("Phase 2.5: Quality gate...", file=sys.stderr)
+    gate_iterations = 0
+    for i in range(args.max_iter):
+        gate_iterations += 1
+
+        # Tier 1: Mechanical lint
+        lint_findings = static_checks.lint()
+        if lint_findings:
+            lint_text = static_checks.format_findings(lint_findings)
+            print(f"  Lint: {len(lint_findings)} finding(s), sending back...", file=sys.stderr)
+            gate_prompt = prompts.build_lint_gate(lint_text)
+            gate_response = session.send(gate_prompt)
+            phases.append({
+                "phase": 2.5,
+                "name": f"Lint gate (iteration {gate_iterations})",
+                "lint_findings": len(lint_findings),
+                "response": gate_response,
+            })
+            continue  # Re-lint after fixes
+
+        # Tier 2: LLM comment-assertion validation (separate cheap call)
+        print("  Lint clean. Validating comment-assertion alignment...", file=sys.stderr)
+        test_samples = static_checks.collect_test_samples()
+        if test_samples:
+            validation_prompt = prompts.build_comment_validation(test_samples)
+            validation_response = session.send(validation_prompt)
+            validation_result = extract_json(validation_response)
+
+            if validation_result and validation_result.get("mismatches"):
+                phases.append({
+                    "phase": 2.5,
+                    "name": f"Comment validation (iteration {gate_iterations})",
+                    "result": validation_result,
+                    "response": validation_response,
+                })
+                continue  # Session fixes mismatches, re-validate
+
+        phases.append({
+            "phase": 2.5,
+            "name": "Quality gate passed",
+            "iterations": gate_iterations,
+        })
+        break
+
     # Phase 3: Confidence check
     print("Phase 3: Confidence check...", file=sys.stderr)
     phase3_iterations = 0

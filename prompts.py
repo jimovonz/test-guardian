@@ -119,3 +119,47 @@ Or if there are gaps:
 
 If you listed gaps, fix them now before responding.
 """
+
+
+def build_lint_gate(lint_findings: str) -> str:
+    """Quality gate: lint findings that must be fixed before proceeding."""
+
+    return f"""## Quality Gate: Static Check Failures
+
+The automated static checker found issues that must be resolved before the tests can proceed to final review. Fix all of these now.
+
+{lint_findings}
+
+After fixing, state what you changed. The static checker will run again automatically.
+"""
+
+
+def build_comment_validation(test_samples: str) -> str:
+    """Quality gate: LLM validates that test comments match assertions."""
+
+    return f"""## Quality Gate: Comment-Assertion Alignment
+
+Each test should have a `// Verifies:` comment that accurately describes what the test proves. Below are test samples with their comments and assertions. Check whether the comment accurately describes what the assertions actually verify.
+
+A mismatch means either:
+- The comment claims more than the assertions prove (e.g. comment says "verifies dedup behaviour" but assertion only checks `toBeDefined()`)
+- The comment is vague or generic (e.g. "verifies it works") rather than specific about the behaviour being tested
+
+Review the samples below and identify any mismatches:
+
+{test_samples}
+
+Respond with the following JSON and nothing else:
+
+```json
+{{"mismatches": []}}
+```
+
+Or if there are mismatches:
+
+```json
+{{"mismatches": ["file.test.ts:42 — comment claims X but assertion only checks Y"]}}
+```
+
+If you found mismatches, fix them now — update either the comment to be accurate or strengthen the assertion to match the comment. Then respond with the JSON.
+"""
