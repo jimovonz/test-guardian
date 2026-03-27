@@ -22,7 +22,11 @@ Write tests for the following changes:
 ```
 """
 
-    return f"""## Task
+    return f"""## IMPORTANT: Context Reset
+
+This session has been forked specifically for test quality work. Ignore all prior conversation, commands, and work-in-progress from the parent session. You are not continuing any previous task. Your ONLY job is the task described below. Do not reference, respond to, or continue anything from before this message.
+
+## Task
 
 Write comprehensive tests for the code in scope. These tests will be submitted for examination by an independent 3rd party assessor.
 
