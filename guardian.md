@@ -11,6 +11,7 @@ python3 /home/james/Projects/test-guardian/guardian.py $ARGUMENTS
 Options:
 - (no args) — review tests for staged/uncommitted changes
 - `--all` — review full test suite
+- `--lint` — static checks only, no LLM (fast, checks all test files)
 - `--base main` — review tests for changes since main
 - `--max-iter 3` — max iterations per phase (default 3)
 

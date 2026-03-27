@@ -137,9 +137,20 @@ def extract_json(text: str) -> dict | None:
 def main():
     parser = argparse.ArgumentParser(description="Test Guardian — escalating test quality review")
     parser.add_argument("--all", action="store_true", help="Review full test suite")
+    parser.add_argument("--lint", action="store_true", help="Run static checks only (no LLM)")
     parser.add_argument("--base", type=str, help="Diff against branch (e.g. main)")
     parser.add_argument("--max-iter", type=int, default=DEFAULT_MAX_ITER, help="Max iterations per phase")
     args = parser.parse_args()
+
+    # Lint mode: static checks only, no LLM
+    if args.lint:
+        findings = static_checks.lint()
+        if not findings:
+            print("# Test Guardian Lint: CLEAN\n\nNo issues found.")
+        else:
+            print(f"# Test Guardian Lint: {len(findings)} finding(s)\n")
+            print(static_checks.format_findings(findings))
+        sys.exit(1 if findings else 0)
 
     # Get diff
     scope_mode = "all" if args.all else "diff"

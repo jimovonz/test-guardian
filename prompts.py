@@ -37,6 +37,7 @@ For every non-trivial code path changed or added, there must be at least one tes
 3. **Mock only external boundaries.** APIs, databases, filesystem, network. Never mock internal functions — test them through their callers.
 4. **Include error and edge cases.** At least one error path per public function. Boundary conditions where applicable.
 5. **Mocking effort must be proportional.** Do the work to set up proper mocks for high-risk paths. If mocking is genuinely disproportionate for a low-risk path, add a `// TEST-GUARDIAN: <reason>` comment explaining why coverage is omitted.
+6. **Every test must have a preceding comment justifying its efficacy.** The comment should state what behaviour is being verified and why the test would fail if that behaviour regressed. Format: `// Verifies: <what this test proves>`. This is mandatory — tests without justification comments will be flagged.
 
 ## Static Analysis Findings
 
@@ -69,6 +70,7 @@ Have you completed the testing task to the prescribed standard? Before answering
 3. Are integration paths tested end-to-end, or only leaf functions?
 4. Are mocks only at external boundaries?
 5. Is there at least one error/edge case test per public function?
+6. Does every test have a preceding `// Verifies:` comment justifying its efficacy?
 
 If you find gaps, fix them now. Then respond with the following JSON and nothing else:
 
